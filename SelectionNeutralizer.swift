@@ -3,20 +3,20 @@ import Foundation
 
 enum SelectionNeutralizerError: LocalizedError {
     case notTrusted
-    case noFocusedElement
-    case noSelectedText
-    case replacementFailed
+    case noSelection
+    case clipboardError
+    case rewriteFailed
 
     var errorDescription: String? {
         switch self {
         case .notTrusted:
             return "Accessibility permission is required to neutralize text in other apps. Enable it in System Settings > Privacy & Security > Accessibility."
-        case .noFocusedElement:
-            return "Could not find the currently focused text element."
-        case .noSelectedText:
-            return "No selected text was found in the focused element."
-        case .replacementFailed:
-            return "Could not replace the selected text in the focused element."
+        case .noSelection:
+            return "No selected text was found in the focused app."
+        case .clipboardError:
+            return "Failed to access the clipboard."
+        case .rewriteFailed:
+            return "Failed to rewrite the copied text."
         }
     }
 }
@@ -54,62 +54,81 @@ final class SelectionNeutralizer: ObservableObject {
 
     func neutralizeFocusedSelection() async {
         guard ensureAccessibilityPermission() else {
-            print("Accessibility permission required for neutralizing external text fields.")
+            print("Accessibility permission required for external neutralization.")
             return
         }
 
         do {
-            let element = try AccessibilityHelper.focusedUIElement()
-            let selectedText = try AccessibilityHelper.selectedText(from: element)
+            let originalClipboardItems = NSPasteboard.general.pasteboardItems
+            let selectedText = try copySelectedText()
             let rewritten = try await LLMService.rewrite(text: selectedText)
-            try AccessibilityHelper.replaceSelectedText(in: element, with: rewritten)
+            try pasteText(rewritten)
+            restoreClipboardItems(originalClipboardItems)
             print("Neutralized selection successfully.")
         } catch {
             print("Neutralize failed: \(error.localizedDescription)")
         }
     }
-}
 
-private enum AccessibilityHelper {
-    static func focusedUIElement() throws -> AXUIElement {
-        let system = AXUIElementCreateSystemWide()
-        var value: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &value)
-
-        guard error == .success, let value = value else {
-            throw SelectionNeutralizerError.noFocusedElement
+    private func copySelectedText() throws -> String {
+        guard let system = CGEventSource(stateID: .combinedSessionState) else {
+            throw SelectionNeutralizerError.clipboardError
         }
 
-        return unsafeBitCast(value, to: AXUIElement.self)
+        let pasteboard = NSPasteboard.general
+        let originalItems = pasteboard.pasteboardItems
+
+        // Request the active app to copy the current selection
+        sendCommandKeyPress(keyCode: 8, source: system) // Cmd+C
+        usleep(200_000)
+
+        guard let copiedText = pasteboard.string(forType: .string), !copiedText.isEmpty else {
+            restoreClipboardItems(originalItems)
+            throw SelectionNeutralizerError.noSelection
+        }
+
+        return copiedText
     }
 
-    static func selectedText(from element: AXUIElement) throws -> String {
-        var value: CFTypeRef?
-        let selectedError = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &value)
-        if selectedError == .success, let text = value as? String, !text.isEmpty {
-            return text
+    private func pasteText(_ text: String) throws {
+        let pasteboard = NSPasteboard.general
+        let originalItems = pasteboard.pasteboardItems
+
+        let cleared = pasteboard.clearContents()
+        guard cleared != 0 else {
+            throw SelectionNeutralizerError.clipboardError
         }
 
-        let valueError = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value)
-        if valueError == .success, let text = value as? String, !text.isEmpty {
-            return text
+        let wrote = pasteboard.setString(text, forType: .string)
+        guard wrote else {
+            restoreClipboardItems(originalItems)
+            throw SelectionNeutralizerError.clipboardError
         }
 
-        throw SelectionNeutralizerError.noSelectedText
+        guard let system = CGEventSource(stateID: .combinedSessionState) else {
+            restoreClipboardItems(originalItems)
+            throw SelectionNeutralizerError.clipboardError
+        }
+
+        sendCommandKeyPress(keyCode: 9, source: system) // Cmd+V
+        usleep(200_000)
+        restoreClipboardItems(originalItems)
     }
 
-    static func replaceSelectedText(in element: AXUIElement, with text: String) throws {
-        let newValue = text as CFTypeRef
-        let selectedError = AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, newValue)
-        if selectedError == .success {
-            return
-        }
+    private func restoreClipboardItems(_ items: [NSPasteboardItem]?) {
+        guard let items = items, !items.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items)
+    }
 
-        let valueError = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, newValue)
-        if valueError == .success {
-            return
-        }
-
-        throw SelectionNeutralizerError.replacementFailed
+    private func sendCommandKeyPress(keyCode: CGKeyCode, source: CGEventSource) {
+        let flags = CGEventFlags.maskCommand
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
+        keyDown?.flags = flags
+        keyUp?.flags = flags
+        keyDown?.post(tap: .cghidEventTap)
+        keyUp?.post(tap: .cghidEventTap)
     }
 }
