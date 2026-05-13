@@ -12,7 +12,7 @@ let package = Package(
         .executableTarget(
             name: "StylometrySanitizer",
             path: ".",
-            sources: ["App.swift", "ContentView.swift", "LLMService.swift"]
+            sources: ["App.swift", "ContentView.swift", "LLMService.swift", "SelectionNeutralizer.swift"]
         )
     ]
 )
