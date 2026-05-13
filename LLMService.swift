@@ -1,7 +1,7 @@
 import Foundation
 
 struct LLMService {
-    static func rewrite(text: String) async throws -> String {
+    static func rewrite(text: String, model: String = "gemma3:4b") async throws -> String {
         let prompt = """
         Rewrite the following text in a neutral, impersonal tone. Remove any slang, emotional language, unique phrasing, varied sentence lengths, and other stylometric markers that could identify the author. Provide only the rewritten text without any additional comments or options:
 
@@ -14,7 +14,7 @@ struct LLMService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": "gemma3:4b",  // Small model
+            "model": model,
             "prompt": prompt,
             "stream": false
         ]
