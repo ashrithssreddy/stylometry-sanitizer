@@ -22,6 +22,7 @@ struct TextEditorWithSelection: NSViewRepresentable {
         textView.isEditable = true
         textView.isSelectable = true
         textView.delegate = context.coordinator
+        textView.becomeFirstResponder()
 
         // Add keyboard shortcut monitor
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
