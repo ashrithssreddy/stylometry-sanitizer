@@ -16,29 +16,48 @@ struct ContentView: View {
 struct TextEditorWithSelection: NSViewRepresentable {
     @Binding var text: String
 
-    func makeNSView(context: Context) -> NSTextView {
+    func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
         textView.string = text
         textView.isEditable = true
         textView.isSelectable = true
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.usesFindBar = true
         textView.delegate = context.coordinator
-        textView.becomeFirstResponder()
+        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        textView.textContainer?.containerSize = NSSize(width: 1000, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.documentView = textView
+        scrollView.drawsBackground = true
+
+        context.coordinator.textView = textView
 
         // Add keyboard shortcut monitor
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift) && event.charactersIgnoringModifiers == "n" {
-                context.coordinator.neutralizeSelectedText(in: textView)
+                context.coordinator.neutralizeSelectedText()
                 return nil // Consume the event
             }
             return event
         }
 
-        return textView
+        return scrollView
     }
 
-    func updateNSView(_ nsView: NSTextView, context: Context) {
-        if nsView.string != text {
-            nsView.string = text
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+
+        DispatchQueue.main.async {
+            if nsView.window?.firstResponder !== textView {
+                nsView.window?.makeFirstResponder(textView)
+            }
         }
     }
 
@@ -48,6 +67,7 @@ struct TextEditorWithSelection: NSViewRepresentable {
 
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: TextEditorWithSelection
+        weak var textView: NSTextView?
 
         init(_ parent: TextEditorWithSelection) {
             self.parent = parent
@@ -59,7 +79,8 @@ struct TextEditorWithSelection: NSViewRepresentable {
             }
         }
 
-        func neutralizeSelectedText(in textView: NSTextView) {
+        func neutralizeSelectedText() {
+            guard let textView = textView else { return }
             let selectedRange = textView.selectedRange()
             guard selectedRange.length > 0 else { return }
 
