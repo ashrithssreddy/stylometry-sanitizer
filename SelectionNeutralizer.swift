@@ -80,7 +80,7 @@ final class SelectionNeutralizer: ObservableObject {
 
         // Request the active app to copy the current selection
         sendCommandKeyPress(keyCode: 8, source: system) // Cmd+C
-        usleep(200_000)
+        usleep(500_000) // 500ms wait for clipboard to update
 
         guard let copiedText = pasteboard.string(forType: .string), !copiedText.isEmpty else {
             restoreClipboardItems(originalItems)
@@ -110,9 +110,13 @@ final class SelectionNeutralizer: ObservableObject {
             throw SelectionNeutralizerError.clipboardError
         }
 
+        usleep(300_000) // 300ms wait before pasting
         sendCommandKeyPress(keyCode: 9, source: system) // Cmd+V
-        usleep(200_000)
-        restoreClipboardItems(originalItems)
+        usleep(500_000) // 500ms wait for paste to complete
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.restoreClipboardItems(originalItems)
+        }
     }
 
     private func restoreClipboardItems(_ items: [NSPasteboardItem]?) {

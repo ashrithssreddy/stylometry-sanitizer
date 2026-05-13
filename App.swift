@@ -20,4 +20,29 @@ struct StylometrySanitizerApp: App {
             }
         }
     }
+
+    init() {
+        NSApplication.shared.servicesProvider = self
+    }
+}
+
+extension StylometrySanitizerApp {
+    func neutralizeText(_ pasteboard: NSPasteboard, userData: String?, error: NSErrorPointer) {
+        guard let text = pasteboard.string(forType: .string), !text.isEmpty else {
+            error?.pointee = NSError(domain: "NeutralizeText", code: 1, userInfo: [NSLocalizedDescriptionKey: "No text found"])
+            return
+        }
+
+        Task {
+            do {
+                let rewritten = try await LLMService.rewrite(text: text)
+                pasteboard.clearContents()
+                pasteboard.setString(rewritten, forType: .string)
+            } catch let caughtError {
+                DispatchQueue.main.async {
+                    error?.pointee = NSError(domain: "NeutralizeText", code: 2, userInfo: [NSLocalizedDescriptionKey: caughtError.localizedDescription])
+                }
+            }
+        }
+    }
 }
