@@ -35,7 +35,7 @@ extension StylometrySanitizerApp {
 
         Task {
             do {
-                let rewritten = try await LLMService.rewrite(text: text)
+                let rewritten = try await LLMService.rewrite(text: text, model: LLMService.preferredModel())
                 pasteboard.clearContents()
                 pasteboard.setString(rewritten, forType: .string)
             } catch let caughtError {

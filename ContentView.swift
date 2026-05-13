@@ -3,12 +3,13 @@ import SwiftUI
 struct ContentView: View {
     @State private var originalText = "Type or paste your text here. Press Neutralize to see the before and after text."
     @State private var neutralizedText = ""
-    @State private var selectedModel = "gemma3:4b"
+    @State private var selectedModel = LLMService.preferredModel()
+    @State private var availableModels: [String] = []
+    @State private var isLoadingModels = true
+    @State private var modelLoadError: String?
     @State private var isProcessing = false
     @State private var alertMessage: String?
     @FocusState private var originalFocused: Bool
-
-    private let availableModels = ["gemma3:4b", "gemma3:12b", "gemma3:27b"]
 
     var body: some View {
         VStack(spacing: 16) {
@@ -27,6 +28,11 @@ struct ContentView: View {
             .frame(minHeight: 340)
 
             HStack(spacing: 12) {
+                if isLoadingModels {
+                    ProgressView()
+                        .frame(width: 120)
+                }
+
                 Picker("Model:", selection: $selectedModel) {
                     ForEach(availableModels, id: \ .self) { model in
                         Text(model).tag(model)
@@ -34,6 +40,8 @@ struct ContentView: View {
                 }
                 .pickerStyle(MenuPickerStyle())
                 .frame(width: 180)
+                .disabled(isLoadingModels || availableModels.isEmpty)
+                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
 
                 Button(action: neutralizeText) {
                     if isProcessing {
@@ -45,6 +53,11 @@ struct ContentView: View {
                 .keyboardShortcut("l", modifiers: [.command, .option, .shift])
                 .disabled(isProcessing || originalText.isEmpty)
 
+                Button("Reload Models") {
+                    Task { await loadAvailableModels() }
+                }
+                .disabled(isLoadingModels)
+
                 Spacer()
 
                 Text("Right-click in the before panel to neutralize selected text in place.")
@@ -52,11 +65,19 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal)
+
+            if let modelLoadError {
+                Text(modelLoadError)
+                    .font(.footnote)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
+            }
         }
         .padding()
         .frame(minWidth: 740, minHeight: 520)
         .onAppear {
             originalFocused = true
+            Task { await loadAvailableModels() }
         }
         .alert("Error", isPresented: Binding(
             get: { alertMessage != nil },
@@ -111,6 +132,33 @@ struct ContentView: View {
                     alertMessage = "Failed to rewrite text: \(error.localizedDescription)"
                     isProcessing = false
                 }
+            }
+        }
+    }
+
+    private func loadAvailableModels() async {
+        isLoadingModels = true
+        modelLoadError = nil
+
+        do {
+            let models = try await LLMService.fetchAvailableModels()
+            await MainActor.run {
+                availableModels = models.isEmpty ? LLMService.defaultModels : models
+                if !availableModels.contains(selectedModel) {
+                    selectedModel = availableModels.first ?? LLMService.defaultModel
+                    LLMService.savePreferredModel(selectedModel)
+                }
+                isLoadingModels = false
+            }
+        } catch {
+            await MainActor.run {
+                availableModels = LLMService.defaultModels
+                if !availableModels.contains(selectedModel) {
+                    selectedModel = availableModels.first ?? LLMService.defaultModel
+                    LLMService.savePreferredModel(selectedModel)
+                }
+                modelLoadError = "Could not load models: \(error.localizedDescription)"
+                isLoadingModels = false
             }
         }
     }
