@@ -26,7 +26,19 @@ struct LLMService {
 
     static func rewrite(text: String, model: String = defaultModel) async throws -> String {
         let prompt = """
-        Rewrite the following text in a neutral, impersonal tone. Remove any slang, emotional language, unique phrasing, varied sentence lengths, and other stylometric markers that could identify the author. Provide only the rewritten text without any additional comments or options:
+        Rewrite the following text in a more stylistically neutral and less personally distinctive manner.
+
+        Requirements:
+        - Preserve the original meaning, factual content, and level of detail.
+        - Maintain approximately the same length as the original text.
+        - Keep the writing natural, fluent, and human-sounding.
+        - Reduce highly distinctive phrasing, emotional exaggeration, slang, unusual punctuation, and strongly personal stylistic quirks.
+        - Normalize sentence structure and vocabulary toward a more common, broadly typical writing style.
+        - Do not summarize, compress, or omit important details.
+        - Do not make the writing sound robotic, legalistic, passive, or machine-generated.
+        - Avoid dramatic or poetic phrasing, but preserve readability and coherence.
+
+        Return only the rewritten text.
 
         \(text)
         """
