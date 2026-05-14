@@ -5,10 +5,10 @@ struct ContentView: View {
     @State private var neutralizedText = ""
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
-    @State private var catalogModels: [String] = LLMService.fallbackDownloadModels
+    @State private var catalogModels: [OllamaCatalogEntry] = LLMService.fallbackDownloadModels
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
     @State private var afterSelectedRange = NSRange(location: 0, length: 0)
-    @State private var selectedDownloadModel = LLMService.fallbackDownloadModels.first ?? LLMService.defaultModel
+    @State private var selectedDownloadModel = LLMService.fallbackDownloadModels.first?.name ?? LLMService.defaultModel
     @State private var isLoadingModels = true
     @State private var isLoadingCatalogModels = true
     @State private var isInstallingModel = false
@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var isProcessing = false
     @State private var alertMessage: String?
     @State private var didCopyOutput = false
+    @State private var isShowingDownloadHelp = false
     @FocusState private var originalFocused: Bool
 
     var body: some View {
@@ -79,7 +80,21 @@ struct ContentView: View {
 
                         Image(systemName: "info.circle")
                             .foregroundColor(.secondary)
-                            .help("If a model is not listed, install it from Terminal with: ollama pull model-name. Then restart or reopen this app to load it in the Model dropdown.")
+                            .onHover { isShowingDownloadHelp = $0 }
+                            .popover(isPresented: $isShowingDownloadHelp, arrowEdge: .bottom) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Model not listed?")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Install it from Terminal:")
+                                    Text("ollama pull model-name")
+                                        .font(.system(.body, design: .monospaced))
+                                        .textSelection(.enabled)
+                                    Text("Then reopen this app and select it from the Model dropdown.")
+                                }
+                                .font(.system(size: 13))
+                                .padding(12)
+                                .frame(width: 260, alignment: .leading)
+                            }
 
                         if isLoadingCatalogModels {
                             ProgressView()
@@ -87,7 +102,7 @@ struct ContentView: View {
                         } else {
                             Picker("", selection: $selectedDownloadModel) {
                                 ForEach(catalogModels, id: \.self) { model in
-                                    Text(model).tag(model)
+                                    Text(model.displayName).tag(model.name)
                                 }
                             }
                             .labelsHidden()
@@ -312,15 +327,15 @@ struct ContentView: View {
             let models = try await LLMService.fetchOllamaCatalogModels()
             await MainActor.run {
                 catalogModels = models.isEmpty ? LLMService.fallbackDownloadModels : models
-                if !catalogModels.contains(selectedDownloadModel) {
-                    selectedDownloadModel = catalogModels.first ?? ""
+                if !catalogModels.contains(where: { $0.name == selectedDownloadModel }) {
+                    selectedDownloadModel = catalogModels.first?.name ?? ""
                 }
                 isLoadingCatalogModels = false
             }
         } catch {
             await MainActor.run {
                 catalogModels = LLMService.fallbackDownloadModels
-                selectedDownloadModel = catalogModels.first ?? ""
+                selectedDownloadModel = catalogModels.first?.name ?? ""
                 isLoadingCatalogModels = false
             }
         }

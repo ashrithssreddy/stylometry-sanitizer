@@ -2,12 +2,12 @@ import Foundation
 
 struct OllamaCatalogEntry: Hashable, Identifiable {
     let name: String
-    let sizes: [String]
+    let size: String?
 
     var id: String { name }
 
     var displayName: String {
-        sizes.isEmpty ? name : "\(name) (\(sizes.joined(separator: ", ")))"
+        size.map { "\(name) (\($0))" } ?? name
     }
 }
 
@@ -15,12 +15,13 @@ struct LLMService {
     static let defaultModel = "gemma3:4b"
     static let defaultModels = ["gemma3:4b", "gemma3:12b", "gemma3:27b"]
     static let fallbackDownloadModels = [
-        OllamaCatalogEntry(name: "gemma3", sizes: ["1b", "4b", "12b", "27b"]),
-        OllamaCatalogEntry(name: "qwen3", sizes: ["0.6b", "1.7b", "4b", "8b", "14b", "32b"]),
-        OllamaCatalogEntry(name: "llama3.2", sizes: ["1b", "3b"]),
-        OllamaCatalogEntry(name: "phi4", sizes: ["14b"]),
-        OllamaCatalogEntry(name: "mistral", sizes: ["7b"]),
-        OllamaCatalogEntry(name: "deepseek-r1", sizes: ["1.5b", "7b", "8b", "14b", "32b", "70b", "671b"])
+        OllamaCatalogEntry(name: "gemma3:1b", size: "1b"),
+        OllamaCatalogEntry(name: "gemma3:4b", size: "4b"),
+        OllamaCatalogEntry(name: "gemma3:12b", size: "12b"),
+        OllamaCatalogEntry(name: "qwen3:0.6b", size: "0.6b"),
+        OllamaCatalogEntry(name: "qwen3:1.7b", size: "1.7b"),
+        OllamaCatalogEntry(name: "llama3.2:1b", size: "1b"),
+        OllamaCatalogEntry(name: "llama3.2:3b", size: "3b")
     ]
     static let selectedModelKey = "StylometrySanitizer.SelectedModel"
 
@@ -199,15 +200,26 @@ struct LLMService {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(html.startIndex..<html.endIndex, in: html)
 
-        return regex.matches(in: html, range: range).compactMap { match in
-            guard let modelRange = Range(match.range(at: 1), in: html) else { return nil }
+        var entries: [OllamaCatalogEntry] = []
+
+        for match in regex.matches(in: html, range: range) {
+            guard let modelRange = Range(match.range(at: 1), in: html) else { continue }
             let model = String(html[modelRange]).removingPercentEncoding ?? String(html[modelRange])
-            guard !model.contains("/") else { return nil }
+            guard !model.contains("/") else { continue }
 
             let bodyRange = Range(match.range(at: 2), in: html)
             let body = bodyRange.map { String(html[$0]) } ?? ""
-            return OllamaCatalogEntry(name: model, sizes: parseParameterSizes(from: body))
+            let sizes = parseParameterSizes(from: body)
+            if sizes.isEmpty {
+                entries.append(OllamaCatalogEntry(name: model, size: nil))
+            } else {
+                entries.append(contentsOf: sizes.map { size in
+                    OllamaCatalogEntry(name: "\(model):\(size)", size: size)
+                })
+            }
         }
+
+        return entries
     }
 
     private static func parseParameterSizes(from text: String) -> [String] {
