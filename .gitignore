@@ -10,6 +10,8 @@
 # macOS
 .DS_Store
 *.app/
+!StylometrySanitizer.app/
+!StylometrySanitizer.app/**
 
 # Temporary files
 *.tmp
