@@ -14,7 +14,7 @@ struct LLMService {
     }
 
     static func fetchAvailableModels() async throws -> [String] {
-        let url = URL(string: "http://localhost:11434/api/models")!
+        let url = URL(string: "http://localhost:11434/api/tags")!
         let (data, response) = try await URLSession.shared.data(from: url)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
@@ -128,11 +128,11 @@ struct LLMService {
         let decoder = JSONDecoder()
 
         if let response = try? decoder.decode(OllamaModelsResponse.self, from: data) {
-            return response.models.map { $0.id }
+            return response.models.compactMap { $0.displayName }
         }
 
         if let models = try? decoder.decode([OllamaModel].self, from: data) {
-            return models.map { $0.id }
+            return models.compactMap { $0.displayName }
         }
 
         let json = try JSONSerialization.jsonObject(with: data)
@@ -141,7 +141,9 @@ struct LLMService {
         }
 
         if let root = json as? [String: Any], let models = root["models"] as? [[String: Any]] {
-            return models.compactMap { $0["id"] as? String }
+            return models.compactMap {
+                ($0["name"] as? String) ?? ($0["model"] as? String) ?? ($0["id"] as? String)
+            }
         }
 
         return []
@@ -157,5 +159,11 @@ private struct OllamaModelsResponse: Decodable {
 }
 
 private struct OllamaModel: Decodable {
-    let id: String
+    let name: String?
+    let model: String?
+    let id: String?
+
+    var displayName: String? {
+        name ?? model ?? id
+    }
 }

@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var modelLoadError: String?
     @State private var isProcessing = false
     @State private var alertMessage: String?
+    @State private var didCopyOutput = false
     @FocusState private var originalFocused: Bool
 
     var body: some View {
@@ -109,6 +110,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func textPanel(title: String, text: Binding<String>, isEditable: Bool, selectedRange: Binding<NSRange>? = nil) -> some View {
+<<<<<<< Updated upstream
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
@@ -140,6 +142,22 @@ struct ContentView: View {
                             .stroke(Color.gray.opacity(0.25), lineWidth: 1)
                     )
                     .disabled(!isEditable)
+=======
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primary)
+                Spacer()
+                if !isEditable {
+                    Button(action: { copyText(text.wrappedValue) }) {
+                        Image(systemName: didCopyOutput ? "checkmark.circle.fill" : "doc.on.doc")
+                        Text("Copy")
+                    }
+                    .buttonStyle(.bordered)
+                    .help(didCopyOutput ? "Copied" : "Copy output to clipboard")
+                }
+>>>>>>> Stashed changes
             }
         }
     }
@@ -246,6 +264,23 @@ struct ContentView: View {
             isInstallingModel = false
         }
     }
+<<<<<<< Updated upstream
+=======
+
+    private func copyText(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        didCopyOutput = true
+
+        Task {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            await MainActor.run {
+                didCopyOutput = false
+            }
+        }
+    }
+>>>>>>> Stashed changes
 }
 
 private struct SelectableTextView: NSViewRepresentable {
