@@ -5,10 +5,12 @@ struct ContentView: View {
     @State private var neutralizedText = ""
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
+    @State private var catalogModels: [String] = LLMService.fallbackDownloadModels
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
     @State private var afterSelectedRange = NSRange(location: 0, length: 0)
-    @State private var newModelName = ""
+    @State private var selectedDownloadModel = LLMService.fallbackDownloadModels.first ?? LLMService.defaultModel
     @State private var isLoadingModels = true
+    @State private var isLoadingCatalogModels = true
     @State private var isInstallingModel = false
     @State private var modelLoadError: String?
     @State private var isProcessing = false
@@ -75,9 +77,23 @@ struct ContentView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
 
-                        TextField("Model name, e.g. gemma3:4b", text: $newModelName)
-                            .textFieldStyle(.roundedBorder)
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.secondary)
+                            .help("If a model is not listed, install it from Terminal with: ollama pull model-name. Then restart or reopen this app to load it in the Model dropdown.")
+
+                        if isLoadingCatalogModels {
+                            ProgressView()
+                                .frame(width: 250, height: 28, alignment: .center)
+                        } else {
+                            Picker("", selection: $selectedDownloadModel) {
+                                ForEach(catalogModels, id: \.self) { model in
+                                    Text(model).tag(model)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
                             .frame(width: 250)
+                        }
 
                         Button(action: { Task { await installModel() } }) {
                             HStack(spacing: 6) {
@@ -92,7 +108,7 @@ struct ContentView: View {
                             .frame(width: 86)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(isInstallingModel || isLoadingCatalogModels || selectedDownloadModel.isEmpty)
 
                         Spacer()
 
@@ -136,7 +152,10 @@ struct ContentView: View {
         }
         .onAppear {
             originalFocused = true
-            Task { await loadAvailableModels() }
+            Task {
+                await loadAvailableModels()
+                await loadCatalogModels()
+            }
         }
         .alert("Error", isPresented: Binding(
             get: { alertMessage != nil },
@@ -286,8 +305,29 @@ struct ContentView: View {
         }
     }
 
+    private func loadCatalogModels() async {
+        isLoadingCatalogModels = true
+
+        do {
+            let models = try await LLMService.fetchOllamaCatalogModels()
+            await MainActor.run {
+                catalogModels = models.isEmpty ? LLMService.fallbackDownloadModels : models
+                if !catalogModels.contains(selectedDownloadModel) {
+                    selectedDownloadModel = catalogModels.first ?? ""
+                }
+                isLoadingCatalogModels = false
+            }
+        } catch {
+            await MainActor.run {
+                catalogModels = LLMService.fallbackDownloadModels
+                selectedDownloadModel = catalogModels.first ?? ""
+                isLoadingCatalogModels = false
+            }
+        }
+    }
+
     private func installModel() async {
-        let modelName = newModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelName = selectedDownloadModel.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !modelName.isEmpty else { return }
         isInstallingModel = true
         modelLoadError = nil
@@ -296,7 +336,6 @@ struct ContentView: View {
             let output = try await LLMService.installModel(named: modelName)
             await MainActor.run {
                 alertMessage = "Installed model: \(modelName)"
-                newModelName = ""
             }
             await loadAvailableModels()
             await MainActor.run {
