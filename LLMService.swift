@@ -1,8 +1,28 @@
 import Foundation
 
+struct OllamaCatalogEntry: Hashable, Identifiable {
+    let name: String
+    let size: String?
+
+    var id: String { name }
+
+    var displayName: String {
+        size.map { "\(name) (\($0))" } ?? name
+    }
+}
+
 struct LLMService {
     static let defaultModel = "gemma3:4b"
     static let defaultModels = ["gemma3:4b", "gemma3:12b", "gemma3:27b"]
+    static let fallbackDownloadModels = [
+        OllamaCatalogEntry(name: "gemma3:1b", size: "1b"),
+        OllamaCatalogEntry(name: "gemma3:4b", size: "4b"),
+        OllamaCatalogEntry(name: "gemma3:12b", size: "12b"),
+        OllamaCatalogEntry(name: "qwen3:0.6b", size: "0.6b"),
+        OllamaCatalogEntry(name: "qwen3:1.7b", size: "1.7b"),
+        OllamaCatalogEntry(name: "llama3.2:1b", size: "1b"),
+        OllamaCatalogEntry(name: "llama3.2:3b", size: "3b")
+    ]
     static let selectedModelKey = "StylometrySanitizer.SelectedModel"
 
     static func preferredModel() -> String {
@@ -22,6 +42,30 @@ struct LLMService {
         }
 
         return try parseModels(from: data)
+    }
+
+    static func fetchOllamaCatalogModels() async throws -> [OllamaCatalogEntry] {
+        let urls = [
+            URL(string: "https://ollama.com/search")!,
+            URL(string: "https://ollama.com/search?sort=newest")!
+        ]
+        var catalogModels: [OllamaCatalogEntry] = []
+
+        for url in urls {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                continue
+            }
+
+            catalogModels.append(contentsOf: parseOllamaCatalogModels(from: data))
+        }
+
+        var seen = Set<String>()
+        return catalogModels.filter { entry in
+            guard !seen.contains(entry.name) else { return false }
+            seen.insert(entry.name)
+            return true
+        }
     }
 
     static func installModel(named model: String) async throws -> String {
@@ -147,6 +191,53 @@ struct LLMService {
         }
 
         return []
+    }
+
+    private static func parseOllamaCatalogModels(from data: Data) -> [OllamaCatalogEntry] {
+        guard let html = String(data: data, encoding: .utf8) else { return [] }
+        let pattern = ##"href="/library/([^"#?]+)"[^>]*>(.*?)</a>"##
+
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+
+        var entries: [OllamaCatalogEntry] = []
+
+        for match in regex.matches(in: html, range: range) {
+            guard let modelRange = Range(match.range(at: 1), in: html) else { continue }
+            let model = String(html[modelRange]).removingPercentEncoding ?? String(html[modelRange])
+            guard !model.contains("/") else { continue }
+
+            let bodyRange = Range(match.range(at: 2), in: html)
+            let body = bodyRange.map { String(html[$0]) } ?? ""
+            let sizes = parseParameterSizes(from: body)
+            if sizes.isEmpty {
+                entries.append(OllamaCatalogEntry(name: model, size: nil))
+            } else {
+                entries.append(contentsOf: sizes.map { size in
+                    OllamaCatalogEntry(name: "\(model):\(size)", size: size)
+                })
+            }
+        }
+
+        return entries
+    }
+
+    private static func parseParameterSizes(from text: String) -> [String] {
+        let pattern = #"(?i)\b(?:\d+(?:\.\d+)?|e\d+)[bm]\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let sizes = regex.matches(in: text, range: range).compactMap { match -> String? in
+            guard let sizeRange = Range(match.range, in: text) else { return nil }
+            return String(text[sizeRange]).lowercased()
+        }
+
+        var seen = Set<String>()
+        return sizes.filter { size in
+            guard !seen.contains(size) else { return false }
+            seen.insert(size)
+            return true
+        }
     }
 }
 

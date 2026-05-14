@@ -5,15 +5,18 @@ struct ContentView: View {
     @State private var neutralizedText = ""
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
+    @State private var catalogModels: [OllamaCatalogEntry] = LLMService.fallbackDownloadModels
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
     @State private var afterSelectedRange = NSRange(location: 0, length: 0)
-    @State private var newModelName = ""
+    @State private var selectedDownloadModel = LLMService.fallbackDownloadModels.first?.name ?? LLMService.defaultModel
     @State private var isLoadingModels = true
+    @State private var isLoadingCatalogModels = true
     @State private var isInstallingModel = false
     @State private var modelLoadError: String?
     @State private var isProcessing = false
     @State private var alertMessage: String?
     @State private var didCopyOutput = false
+    @State private var isShowingDownloadHelp = false
     @FocusState private var originalFocused: Bool
 
     var body: some View {
@@ -27,9 +30,13 @@ struct ContentView: View {
 
             VStack(spacing: 20) {
                 VStack(spacing: 8) {
-                    Text("🛡️ Stylometry Sanitizer")
-                        .font(.system(size: 29, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
+                    HStack(spacing: 10) {
+                        AppLogo(size: 34)
+
+                        Text("Stylometry Sanitizer")
+                            .font(.system(size: 29, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
 
                     Text("Neutralize your writing style for privacy")
                         .font(.system(size: 14))
@@ -44,51 +51,87 @@ struct ContentView: View {
                     }
                     .frame(minHeight: 350)
 
-                    HStack(alignment: .center, spacing: 12) {
-                        Text("Model")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                    HStack(alignment: .center, spacing: 20) {
+                        HStack(alignment: .center, spacing: 10) {
+                            Text("Model")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 64, alignment: .trailing)
 
-                        if isLoadingModels {
-                            ProgressView()
-                                .frame(width: 160, height: 28, alignment: .center)
-                        } else {
-                            Picker("", selection: $selectedModel) {
-                                ForEach(availableModels, id: \.self) { model in
-                                    Text(model).tag(model)
+                            if isLoadingModels {
+                                ProgressView()
+                                    .frame(width: 180, height: 28, alignment: .center)
+                            } else {
+                                Picker("", selection: $selectedModel) {
+                                    ForEach(availableModels, id: \.self) { model in
+                                        Text(model).tag(model)
+                                    }
                                 }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 180)
+                                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(width: 160)
-                            .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                         }
 
                         Divider()
                             .frame(height: 24)
 
-                        Text("Download")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-
-                        TextField("Model name, e.g. gemma3:4b", text: $newModelName)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 250)
-
-                        Button(action: { Task { await installModel() } }) {
+                        HStack(alignment: .center, spacing: 10) {
                             HStack(spacing: 6) {
-                                if isInstallingModel {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "arrow.down.circle")
-                                    Text("Install")
-                                }
+                                Text("Download")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.secondary)
+                                    .onHover { isShowingDownloadHelp = $0 }
+                                    .popover(isPresented: $isShowingDownloadHelp, arrowEdge: .bottom) {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("Model not listed?")
+                                                .font(.system(size: 13, weight: .semibold))
+                                            Text("Install it from Terminal:")
+                                            Text("ollama pull model-name")
+                                                .font(.system(.body, design: .monospaced))
+                                                .textSelection(.enabled)
+                                            Text("Then reopen this app and select it from the Model dropdown.")
+                                        }
+                                        .font(.system(size: 13))
+                                        .padding(12)
+                                        .frame(width: 260, alignment: .leading)
+                                    }
                             }
-                            .frame(width: 86)
+                            .frame(width: 96, alignment: .trailing)
+
+                            if isLoadingCatalogModels {
+                                ProgressView()
+                                    .frame(width: 260, height: 28, alignment: .center)
+                            } else {
+                                Picker("", selection: $selectedDownloadModel) {
+                                    ForEach(catalogModels, id: \.self) { model in
+                                        Text(model.displayName).tag(model.name)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 260)
+                            }
+
+                            Button(action: { Task { await installModel() } }) {
+                                HStack(spacing: 6) {
+                                    if isInstallingModel {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                        Text("Install")
+                                    }
+                                }
+                                .frame(width: 100)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isInstallingModel || isLoadingCatalogModels || selectedDownloadModel.isEmpty)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                         Spacer()
 
@@ -108,7 +151,8 @@ struct ContentView: View {
                         .keyboardShortcut("l", modifiers: [.command, .option, .shift])
                         .disabled(isProcessing || originalText.isEmpty)
                     }
-                    .padding(16)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 25)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                     .cornerRadius(8)
                     .overlay(
@@ -131,7 +175,10 @@ struct ContentView: View {
         }
         .onAppear {
             originalFocused = true
-            Task { await loadAvailableModels() }
+            Task {
+                await loadAvailableModels()
+                await loadCatalogModels()
+            }
         }
         .alert("Error", isPresented: Binding(
             get: { alertMessage != nil },
@@ -168,7 +215,7 @@ struct ContentView: View {
 
                 if let selectedRange = selectedRange {
                     let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .padding(16)
 
                     if isEditable {
@@ -189,7 +236,7 @@ struct ContentView: View {
                     }
                 } else {
                     TextEditor(text: text)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .padding(16)
                         .disabled(!isEditable)
                 }
@@ -281,8 +328,29 @@ struct ContentView: View {
         }
     }
 
+    private func loadCatalogModels() async {
+        isLoadingCatalogModels = true
+
+        do {
+            let models = try await LLMService.fetchOllamaCatalogModels()
+            await MainActor.run {
+                catalogModels = models.isEmpty ? LLMService.fallbackDownloadModels : models
+                if !catalogModels.contains(where: { $0.name == selectedDownloadModel }) {
+                    selectedDownloadModel = catalogModels.first?.name ?? ""
+                }
+                isLoadingCatalogModels = false
+            }
+        } catch {
+            await MainActor.run {
+                catalogModels = LLMService.fallbackDownloadModels
+                selectedDownloadModel = catalogModels.first?.name ?? ""
+                isLoadingCatalogModels = false
+            }
+        }
+    }
+
     private func installModel() async {
-        let modelName = newModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelName = selectedDownloadModel.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !modelName.isEmpty else { return }
         isInstallingModel = true
         modelLoadError = nil
@@ -291,7 +359,6 @@ struct ContentView: View {
             let output = try await LLMService.installModel(named: modelName)
             await MainActor.run {
                 alertMessage = "Installed model: \(modelName)"
-                newModelName = ""
             }
             await loadAvailableModels()
             await MainActor.run {
@@ -323,10 +390,53 @@ struct ContentView: View {
     }
 }
 
+private struct AppLogo: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.10, green: 0.36, blue: 0.58),
+                            Color(red: 0.14, green: 0.58, blue: 0.50)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: size * 0.58, weight: .semibold))
+                .foregroundColor(.white.opacity(0.96))
+
+            VStack(alignment: .leading, spacing: size * 0.055) {
+                Capsule()
+                    .fill(Color(red: 0.10, green: 0.36, blue: 0.58))
+                    .frame(width: size * 0.20, height: max(1, size * 0.035))
+                Capsule()
+                    .fill(Color(red: 0.10, green: 0.36, blue: 0.58))
+                    .frame(width: size * 0.16, height: max(1, size * 0.035))
+            }
+            .offset(x: size * 0.03, y: -size * 0.04)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: size * 0.23, weight: .bold))
+                .foregroundColor(Color(red: 0.10, green: 0.36, blue: 0.58))
+                .offset(x: size * 0.11, y: size * 0.11)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct SelectableTextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var selectedRange: NSRange
     var isEditable: Bool
+    private let textFont = NSFont.systemFont(ofSize: NSFont.systemFontSize + 2)
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -341,7 +451,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 1)
+        applyTextStyle(to: textView)
         textView.string = text
         textView.selectedRange = selectedRange
 
@@ -366,6 +476,17 @@ private struct SelectableTextView: NSViewRepresentable {
 
         textView.isEditable = isEditable
         textView.isSelectable = true
+        applyTextStyle(to: textView)
+    }
+
+    private func applyTextStyle(to textView: NSTextView) {
+        textView.font = textFont
+        textView.typingAttributes[.font] = textFont
+
+        let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+        if fullRange.length > 0 {
+            textView.textStorage?.addAttribute(.font, value: textFont, range: fullRange)
+        }
     }
 
     class Coordinator: NSObject, NSTextViewDelegate {
