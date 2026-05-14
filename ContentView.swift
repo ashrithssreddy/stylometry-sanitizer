@@ -51,79 +51,87 @@ struct ContentView: View {
                     }
                     .frame(minHeight: 350)
 
-                    HStack(alignment: .center, spacing: 12) {
-                        Text("Model")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                    HStack(alignment: .center, spacing: 20) {
+                        HStack(alignment: .center, spacing: 10) {
+                            Text("Model")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 64, alignment: .trailing)
 
-                        if isLoadingModels {
-                            ProgressView()
-                                .frame(width: 160, height: 28, alignment: .center)
-                        } else {
-                            Picker("", selection: $selectedModel) {
-                                ForEach(availableModels, id: \.self) { model in
-                                    Text(model).tag(model)
+                            if isLoadingModels {
+                                ProgressView()
+                                    .frame(width: 180, height: 28, alignment: .center)
+                            } else {
+                                Picker("", selection: $selectedModel) {
+                                    ForEach(availableModels, id: \.self) { model in
+                                        Text(model).tag(model)
+                                    }
                                 }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 180)
+                                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(width: 160)
-                            .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                         }
 
                         Divider()
                             .frame(height: 24)
 
-                        Text("Download")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.secondary)
-                            .onHover { isShowingDownloadHelp = $0 }
-                            .popover(isPresented: $isShowingDownloadHelp, arrowEdge: .bottom) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Model not listed?")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text("Install it from Terminal:")
-                                    Text("ollama pull model-name")
-                                        .font(.system(.body, design: .monospaced))
-                                        .textSelection(.enabled)
-                                    Text("Then reopen this app and select it from the Model dropdown.")
-                                }
-                                .font(.system(size: 13))
-                                .padding(12)
-                                .frame(width: 260, alignment: .leading)
-                            }
-
-                        if isLoadingCatalogModels {
-                            ProgressView()
-                                .frame(width: 250, height: 28, alignment: .center)
-                        } else {
-                            Picker("", selection: $selectedDownloadModel) {
-                                ForEach(catalogModels, id: \.self) { model in
-                                    Text(model.displayName).tag(model.name)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(width: 250)
-                        }
-
-                        Button(action: { Task { await installModel() } }) {
+                        HStack(alignment: .center, spacing: 10) {
                             HStack(spacing: 6) {
-                                if isInstallingModel {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "arrow.down.circle")
-                                    Text("Install")
-                                }
+                                Text("Download")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.secondary)
+                                    .onHover { isShowingDownloadHelp = $0 }
+                                    .popover(isPresented: $isShowingDownloadHelp, arrowEdge: .bottom) {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("Model not listed?")
+                                                .font(.system(size: 13, weight: .semibold))
+                                            Text("Install it from Terminal:")
+                                            Text("ollama pull model-name")
+                                                .font(.system(.body, design: .monospaced))
+                                                .textSelection(.enabled)
+                                            Text("Then reopen this app and select it from the Model dropdown.")
+                                        }
+                                        .font(.system(size: 13))
+                                        .padding(12)
+                                        .frame(width: 260, alignment: .leading)
+                                    }
                             }
-                            .frame(width: 86)
+                            .frame(width: 96, alignment: .trailing)
+
+                            if isLoadingCatalogModels {
+                                ProgressView()
+                                    .frame(width: 260, height: 28, alignment: .center)
+                            } else {
+                                Picker("", selection: $selectedDownloadModel) {
+                                    ForEach(catalogModels, id: \.self) { model in
+                                        Text(model.displayName).tag(model.name)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 260)
+                            }
+
+                            Button(action: { Task { await installModel() } }) {
+                                HStack(spacing: 6) {
+                                    if isInstallingModel {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                        Text("Install")
+                                    }
+                                }
+                                .frame(width: 100)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isInstallingModel || isLoadingCatalogModels || selectedDownloadModel.isEmpty)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(isInstallingModel || isLoadingCatalogModels || selectedDownloadModel.isEmpty)
 
                         Spacer()
 
@@ -399,9 +407,24 @@ private struct AppLogo: View {
                     )
                 )
 
-            Image(systemName: "text.badge.checkmark")
-                .font(.system(size: size * 0.50, weight: .semibold))
-                .foregroundColor(.white)
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: size * 0.58, weight: .semibold))
+                .foregroundColor(.white.opacity(0.96))
+
+            VStack(alignment: .leading, spacing: size * 0.055) {
+                Capsule()
+                    .fill(Color(red: 0.10, green: 0.36, blue: 0.58))
+                    .frame(width: size * 0.20, height: max(1, size * 0.035))
+                Capsule()
+                    .fill(Color(red: 0.10, green: 0.36, blue: 0.58))
+                    .frame(width: size * 0.16, height: max(1, size * 0.035))
+            }
+            .offset(x: size * 0.03, y: -size * 0.04)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: size * 0.23, weight: .bold))
+                .foregroundColor(Color(red: 0.10, green: 0.36, blue: 0.58))
+                .offset(x: size * 0.11, y: size * 0.11)
         }
         .frame(width: size, height: size)
         .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
