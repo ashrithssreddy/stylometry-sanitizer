@@ -27,9 +27,13 @@ struct ContentView: View {
 
             VStack(spacing: 20) {
                 VStack(spacing: 8) {
-                    Text("🛡️ Stylometry Sanitizer")
-                        .font(.system(size: 29, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
+                    HStack(spacing: 10) {
+                        AppLogo(size: 34)
+
+                        Text("Stylometry Sanitizer")
+                            .font(.system(size: 29, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
 
                     Text("Neutralize your writing style for privacy")
                         .font(.system(size: 14))
@@ -321,6 +325,33 @@ struct ContentView: View {
                 didCopyOutput = false
             }
         }
+    }
+}
+
+private struct AppLogo: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.10, green: 0.36, blue: 0.58),
+                            Color(red: 0.14, green: 0.58, blue: 0.50)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            Image(systemName: "text.badge.checkmark")
+                .font(.system(size: size * 0.50, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
+        .accessibilityHidden(true)
     }
 }
 

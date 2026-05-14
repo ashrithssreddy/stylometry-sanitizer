@@ -23,6 +23,10 @@ struct StylometrySanitizerApp: App {
 
     init() {
         NSApplication.shared.servicesProvider = self
+        if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let icon = NSImage(contentsOf: iconURL) {
+            NSApplication.shared.applicationIconImage = icon
+        }
     }
 }
 
