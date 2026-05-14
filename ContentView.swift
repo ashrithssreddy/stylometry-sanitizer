@@ -108,7 +108,8 @@ struct ContentView: View {
                         .keyboardShortcut("l", modifiers: [.command, .option, .shift])
                         .disabled(isProcessing || originalText.isEmpty)
                     }
-                    .padding(16)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 25)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                     .cornerRadius(8)
                     .overlay(
@@ -327,6 +328,7 @@ private struct SelectableTextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var selectedRange: NSRange
     var isEditable: Bool
+    private let textFont = NSFont.systemFont(ofSize: NSFont.systemFontSize + 2)
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -341,7 +343,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 2)
+        textView.font = textFont
         textView.string = text
         textView.selectedRange = selectedRange
 
@@ -366,6 +368,7 @@ private struct SelectableTextView: NSViewRepresentable {
 
         textView.isEditable = isEditable
         textView.isSelectable = true
+        textView.font = textFont
     }
 
     class Coordinator: NSObject, NSTextViewDelegate {
