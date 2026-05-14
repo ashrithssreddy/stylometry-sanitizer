@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
+    @State private var afterSelectedRange = NSRange(location: 0, length: 0)
     @State private var newModelName = ""
     @State private var isLoadingModels = true
     @State private var isInstallingModel = false
@@ -22,7 +23,7 @@ struct ContentView: View {
 
             HStack(alignment: .top, spacing: 16) {
                 textPanel(title: "Before", text: $originalText, isEditable: true, selectedRange: $beforeSelectedRange)
-                textPanel(title: "After", text: $neutralizedText, isEditable: false)
+                textPanel(title: "After", text: $neutralizedText, isEditable: false, selectedRange: $afterSelectedRange)
             }
             .frame(minHeight: 340)
 
@@ -110,11 +111,21 @@ struct ContentView: View {
     @ViewBuilder
     private func textPanel(title: String, text: Binding<String>, isEditable: Bool, selectedRange: Binding<NSRange>? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                if !isEditable {
+                    Button(action: { copyText(text.wrappedValue) }) {
+                        Text("Copy")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Copy output to clipboard")
+                }
+            }
 
             if let selectedRange = selectedRange {
-                SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
+                let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
                     .font(.system(.body, design: .default))
                     .padding(12)
                     .background(Color(NSColor.textBackgroundColor))
@@ -123,12 +134,23 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.gray.opacity(0.25), lineWidth: 1)
                     )
-                    .contextMenu {
-                        Button("Neutralize Selected Text") {
-                            neutralizeSelectedText()
+
+                if isEditable {
+                    view
+                        .contextMenu {
+                            Button("Neutralize Selected Text") {
+                                neutralizeSelectedText()
+                            }
                         }
-                    }
-                    .focused($originalFocused)
+                        .focused($originalFocused)
+                } else {
+                    view
+                        .contextMenu {
+                            Button("Copy") {
+                                copyText(text.wrappedValue)
+                            }
+                        }
+                }
             } else {
                 TextEditor(text: text)
                     .font(.system(.body, design: .default))
@@ -246,6 +268,13 @@ struct ContentView: View {
             isInstallingModel = false
         }
     }
+
+    private func copyText(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        alertMessage = "Copied output to clipboard."
+    }
 }
 
 private struct SelectableTextView: NSViewRepresentable {
@@ -290,6 +319,7 @@ private struct SelectableTextView: NSViewRepresentable {
         }
 
         textView.isEditable = isEditable
+        textView.isSelectable = true
     }
 
     class Coordinator: NSObject, NSTextViewDelegate {
