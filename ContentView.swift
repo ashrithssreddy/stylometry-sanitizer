@@ -374,7 +374,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = textFont
+        applyTextStyle(to: textView)
         textView.string = text
         textView.selectedRange = selectedRange
 
@@ -399,7 +399,17 @@ private struct SelectableTextView: NSViewRepresentable {
 
         textView.isEditable = isEditable
         textView.isSelectable = true
+        applyTextStyle(to: textView)
+    }
+
+    private func applyTextStyle(to textView: NSTextView) {
         textView.font = textFont
+        textView.typingAttributes[.font] = textFont
+
+        let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+        if fullRange.length > 0 {
+            textView.textStorage?.addAttribute(.font, value: textFont, range: fullRange)
+        }
     }
 
     class Coordinator: NSObject, NSTextViewDelegate {
