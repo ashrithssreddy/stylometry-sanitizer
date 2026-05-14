@@ -6,7 +6,9 @@ struct ContentView: View {
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
+    @State private var newModelName = ""
     @State private var isLoadingModels = true
+    @State private var isInstallingModel = false
     @State private var modelLoadError: String?
     @State private var isProcessing = false
     @State private var alertMessage: String?
@@ -60,6 +62,25 @@ struct ContentView: View {
                 Text("Use the before-panel menu to neutralize selected text.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+
+            HStack(spacing: 12) {
+                TextField("Pull model name (e.g. gemma3:4b)", text: $newModelName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 320)
+
+                Button("Install Model") {
+                    Task { await installModel() }
+                }
+                .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if isInstallingModel {
+                    ProgressView()
+                        .scaleEffect(0.8, anchor: .center)
+                }
+
+                Spacer()
             }
             .padding(.horizontal)
 
@@ -196,6 +217,33 @@ struct ContentView: View {
                 modelLoadError = "Could not load models: \(error.localizedDescription)"
                 isLoadingModels = false
             }
+        }
+    }
+
+    private func installModel() async {
+        let modelName = newModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !modelName.isEmpty else { return }
+        isInstallingModel = true
+        modelLoadError = nil
+
+        do {
+            let output = try await LLMService.installModel(named: modelName)
+            await MainActor.run {
+                alertMessage = "Installed model: \(modelName)"
+                newModelName = ""
+            }
+            await loadAvailableModels()
+            await MainActor.run {
+                modelLoadError = output.isEmpty ? nil : output
+            }
+        } catch {
+            await MainActor.run {
+                alertMessage = "Failed to install model: \(error.localizedDescription)"
+            }
+        }
+
+        await MainActor.run {
+            isInstallingModel = false
         }
     }
 }

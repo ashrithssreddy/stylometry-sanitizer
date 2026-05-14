@@ -24,6 +24,65 @@ struct LLMService {
         return try parseModels(from: data)
     }
 
+    static func installModel(named model: String) async throws -> String {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw NSError(domain: "LLMService", code: 1, userInfo:[NSLocalizedDescriptionKey: "Model name cannot be empty."])
+        }
+
+        return try await Task.detached { () throws -> String in
+            let executable = try ollamaExecutableURL()
+            let process = Process()
+            process.executableURL = executable
+            process.arguments = ["pull", trimmed]
+
+            let outputPipe = Pipe()
+            let errorPipe = Pipe()
+            process.standardOutput = outputPipe
+            process.standardError = errorPipe
+
+            try process.run()
+            process.waitUntilExit()
+
+            let stdoutData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let stderrData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
+            let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+
+            if process.terminationStatus != 0 {
+                let message = [stdout, stderr].filter { !$0.isEmpty }.joined(separator: "\n")
+                throw NSError(domain: "LLMService", code: Int(process.terminationStatus), userInfo:[NSLocalizedDescriptionKey: message.isEmpty ? "ollama pull failed" : message])
+            }
+
+            return stdout.isEmpty ? stderr : stdout
+        }.value
+    }
+
+    private static func ollamaExecutableURL() throws -> URL {
+        let candidates = [
+            "/opt/homebrew/bin/ollama",
+            "/usr/local/bin/ollama",
+            "/usr/bin/ollama",
+            "/bin/ollama"
+        ]
+
+        for candidate in candidates {
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return URL(fileURLWithPath: candidate)
+            }
+        }
+
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        for directory in path.components(separatedBy: ":") {
+            let candidate = URL(fileURLWithPath: directory).appendingPathComponent("ollama").path
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return URL(fileURLWithPath: candidate)
+            }
+        }
+
+        throw NSError(domain: "LLMService", code: 2, userInfo:[NSLocalizedDescriptionKey: "Could not find the ollama executable on PATH."])
+    }
+
     static func rewrite(text: String, model: String = defaultModel) async throws -> String {
         let prompt = """
         Rewrite the following text in a more stylistically neutral and less personally distinctive manner.
