@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var selectedModel = LLMService.preferredModel()
     @State private var availableModels: [String] = []
     @State private var beforeSelectedRange = NSRange(location: 0, length: 0)
+    @State private var afterSelectedRange = NSRange(location: 0, length: 0)
     @State private var newModelName = ""
     @State private var isLoadingModels = true
     @State private var isInstallingModel = false
@@ -15,84 +16,124 @@ struct ContentView: View {
     @FocusState private var originalFocused: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Stylometry Sanitizer")
-                .font(.title2)
-                .bold()
+        ZStack {
+            // Subtle gradient background
+            LinearGradient(
+                gradient: Gradient(colors: [Color(NSColor.windowBackgroundColor), Color(NSColor.windowBackgroundColor).opacity(0.95)]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .edgesIgnoringSafeArea(.all)
 
-            HStack(alignment: .top, spacing: 16) {
-                textPanel(title: "Before", text: $originalText, isEditable: true, selectedRange: $beforeSelectedRange)
-                textPanel(title: "After", text: $neutralizedText, isEditable: false)
-            }
-            .frame(minHeight: 340)
-
-            HStack(spacing: 12) {
-                if isLoadingModels {
-                    ProgressView()
-                        .frame(width: 120)
+            VStack(spacing: 20) {
+                // Header
+                VStack(spacing: 8) {
+                    Text("🛡️ Stylometry Sanitizer")
+                        .font(.system(size: 29, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                    
+                    Text("Neutralize your writing style for privacy")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
                 }
+                .padding(.top, 10)
 
-                Picker("Model:", selection: $selectedModel) {
-                    ForEach(availableModels, id: \.self) { model in
-                        Text(model).tag(model)
+                // Main content
+                VStack(spacing: 16) {
+                    // Text panels
+                    HStack(alignment: .top, spacing: 20) {
+                        textPanel(title: "Original Text", text: $originalText, isEditable: true, selectedRange: $beforeSelectedRange)
+                        textPanel(title: "Sanitized Text", text: $neutralizedText, isEditable: false, selectedRange: $afterSelectedRange)
                     }
-                }
-                .pickerStyle(MenuPickerStyle())
-                .frame(width: 180)
-                .disabled(isLoadingModels || availableModels.isEmpty)
-                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
+                    .frame(minHeight: 350)
 
-                Button(action: neutralizeText) {
-                    if isProcessing {
-                        ProgressView()
-                    } else {
-                        Text("Neutralize")
+                    // Controls
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("Model")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+
+                        if isLoadingModels {
+                            ProgressView()
+                                .frame(width: 160, height: 28, alignment: .center)
+                        } else {
+                            Picker("", selection: $selectedModel) {
+                                ForEach(availableModels, id: \.self) { model in
+                                    Text(model).tag(model)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 160)
+                            .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
+                        }
+
+                        Divider()
+                            .frame(height: 24)
+
+                        Text("Download")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+
+                        TextField("Model name, e.g. gemma3:4b", text: $newModelName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 250)
+
+                        Button(action: { Task { await installModel() } }) {
+                            HStack(spacing: 6) {
+                                if isInstallingModel {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "arrow.down.circle")
+                                    Text("Install")
+                                }
+                            }
+                            .frame(width: 86)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Spacer()
+
+                        Button(action: neutralizeText) {
+                            HStack(spacing: 6) {
+                                if isProcessing {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "wand.and.stars")
+                                    Text("Neutralize")
+                                }
+                            }
+                            .frame(width: 122)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut("l", modifiers: [.command, .option, .shift])
+                        .disabled(isProcessing || originalText.isEmpty)
                     }
+                    .padding(16)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
                 }
-                .keyboardShortcut("l", modifiers: [.command, .option, .shift])
-                .disabled(isProcessing || originalText.isEmpty)
+                .padding(.horizontal, 20)
 
-                Button("Reload Models") {
-                    Task { await loadAvailableModels() }
+                // Error message
+                if let modelLoadError {
+                    Text(modelLoadError)
+                        .font(.system(size: 14))
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
                 }
-                .disabled(isLoadingModels)
-
-                Spacer()
-
-                Text("Use the before-panel menu to neutralize selected text.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
-
-            HStack(spacing: 12) {
-                TextField("Pull model name (e.g. gemma3:4b)", text: $newModelName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .frame(width: 320)
-
-                Button("Install Model") {
-                    Task { await installModel() }
-                }
-                .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                if isInstallingModel {
-                    ProgressView()
-                        .scaleEffect(0.8, anchor: .center)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            if let modelLoadError {
-                Text(modelLoadError)
-                    .font(.footnote)
-                    .foregroundColor(.red)
-                    .padding(.horizontal)
-            }
+            .padding()
+            .frame(minWidth: 800, minHeight: 600)
+            .font(.system(size: NSFont.systemFontSize + 1))
         }
-        .padding()
-        .frame(minWidth: 740, minHeight: 520)
         .onAppear {
             originalFocused = true
             Task { await loadAvailableModels() }
@@ -109,39 +150,64 @@ struct ContentView: View {
 
     @ViewBuilder
     private func textPanel(title: String, text: Binding<String>, isEditable: Bool, selectedRange: Binding<NSRange>? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-
-            if let selectedRange = selectedRange {
-                SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
-                    .font(.system(.body, design: .default))
-                    .padding(12)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.gray.opacity(0.25), lineWidth: 1)
-                    )
-                    .contextMenu {
-                        Button("Neutralize Selected Text") {
-                            neutralizeSelectedText()
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primary)
+                Spacer()
+                if !isEditable {
+                    Button(action: { copyText(text.wrappedValue) }) {
+                        Image(systemName: "doc.on.doc")
+                        Text("Copy")
                     }
-                    .focused($originalFocused)
-            } else {
-                TextEditor(text: text)
-                    .font(.system(.body, design: .default))
-                    .padding(12)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.gray.opacity(0.25), lineWidth: 1)
-                    )
-                    .disabled(!isEditable)
+                    .buttonStyle(.bordered)
+                    .help("Copy output to clipboard")
+                }
             }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.textBackgroundColor))
+                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+
+                if let selectedRange = selectedRange {
+                    let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
+                        .font(.system(size: 14))
+                        .padding(16)
+
+                    if isEditable {
+                        view
+                            .contextMenu {
+                                Button("Neutralize Selected Text") {
+                                    neutralizeSelectedText()
+                                }
+                            }
+                            .focused($originalFocused)
+                    } else {
+                        view
+                            .contextMenu {
+                                Button("Copy") {
+                                    copyText(text.wrappedValue)
+                                }
+                            }
+                    }
+                } else {
+                    TextEditor(text: text)
+                        .font(.system(size: 14))
+                        .padding(16)
+                        .disabled(!isEditable)
+                }
+            }
+            .frame(minHeight: 300)
         }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+        )
     }
 
     func neutralizeText() {
@@ -246,6 +312,13 @@ struct ContentView: View {
             isInstallingModel = false
         }
     }
+
+    private func copyText(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        alertMessage = "Copied output to clipboard."
+    }
 }
 
 private struct SelectableTextView: NSViewRepresentable {
@@ -266,7 +339,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 1)
         textView.string = text
         textView.selectedRange = selectedRange
 
@@ -290,6 +363,7 @@ private struct SelectableTextView: NSViewRepresentable {
         }
 
         textView.isEditable = isEditable
+        textView.isSelectable = true
     }
 
     class Coordinator: NSObject, NSTextViewDelegate {
