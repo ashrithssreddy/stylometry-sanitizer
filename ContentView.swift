@@ -168,7 +168,7 @@ struct ContentView: View {
 
                 if let selectedRange = selectedRange {
                     let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .padding(16)
 
                     if isEditable {
@@ -189,7 +189,7 @@ struct ContentView: View {
                     }
                 } else {
                     TextEditor(text: text)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .padding(16)
                         .disabled(!isEditable)
                 }
@@ -341,7 +341,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 1)
+        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 2)
         textView.string = text
         textView.selectedRange = selectedRange
 
