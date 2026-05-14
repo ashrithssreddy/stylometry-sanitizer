@@ -48,84 +48,69 @@ struct ContentView: View {
                     .frame(minHeight: 350)
 
                     // Controls
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .center, spacing: 12) {
-                            Text("Model")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 74, alignment: .trailing)
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("Model")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
 
-                            if isLoadingModels {
-                                ProgressView()
-                                    .frame(width: 180, height: 28, alignment: .center)
-                            } else {
-                                Picker("", selection: $selectedModel) {
-                                    ForEach(availableModels, id: \.self) { model in
-                                        Text(model).tag(model)
-                                    }
+                        if isLoadingModels {
+                            ProgressView()
+                                .frame(width: 160, height: 28, alignment: .center)
+                        } else {
+                            Picker("", selection: $selectedModel) {
+                                ForEach(availableModels, id: \.self) { model in
+                                    Text(model).tag(model)
                                 }
-                                .labelsHidden()
-                                .pickerStyle(.menu)
-                                .frame(width: 180)
-                                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                             }
-
-                            Button(action: neutralizeText) {
-                                HStack(spacing: 6) {
-                                    if isProcessing {
-                                        ProgressView()
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "wand.and.stars")
-                                        Text("Neutralize")
-                                    }
-                                }
-                                .frame(width: 122)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut("l", modifiers: [.command, .option, .shift])
-                            .disabled(isProcessing || originalText.isEmpty)
-
-                            Spacer()
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 160)
+                            .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                         }
 
-                        HStack(alignment: .center, spacing: 12) {
-                            Text("Install")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 74, alignment: .trailing)
+                        Divider()
+                            .frame(height: 24)
 
-                            TextField("Model name, e.g. gemma3:4b", text: $newModelName)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 250)
+                        Text("Download")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
 
-                            Button(action: { Task { await installModel() } }) {
-                                HStack(spacing: 6) {
-                                    if isInstallingModel {
-                                        ProgressView()
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "arrow.down.circle")
-                                        Text("Install")
-                                    }
+                        TextField("Model name, e.g. gemma3:4b", text: $newModelName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 250)
+
+                        Button(action: { Task { await installModel() } }) {
+                            HStack(spacing: 6) {
+                                if isInstallingModel {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "arrow.down.circle")
+                                    Text("Install")
                                 }
-                                .frame(width: 86)
                             }
-                            .buttonStyle(.bordered)
-                            .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                            Button(action: { Task { await loadAvailableModels() } }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("Refresh")
-                                }
-                                .frame(width: 86)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isLoadingModels)
-
-                            Spacer()
+                            .frame(width: 86)
                         }
+                        .buttonStyle(.bordered)
+                        .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Spacer()
+
+                        Button(action: neutralizeText) {
+                            HStack(spacing: 6) {
+                                if isProcessing {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "wand.and.stars")
+                                    Text("Neutralize")
+                                }
+                            }
+                            .frame(width: 122)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut("l", modifiers: [.command, .option, .shift])
+                        .disabled(isProcessing || originalText.isEmpty)
                     }
                     .padding(16)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
