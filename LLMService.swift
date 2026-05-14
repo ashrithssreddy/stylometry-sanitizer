@@ -88,6 +88,7 @@ struct LLMService {
         Rewrite the following text in a more stylistically neutral and less personally distinctive manner.
 
         Requirements:
+        - Rewrite the text sentence by sentence to preserve depth, detail, and meaning.
         - Preserve the original meaning, factual content, and level of detail.
         - Maintain approximately the same length as the original text.
         - Keep the writing natural, fluent, and human-sounding.
