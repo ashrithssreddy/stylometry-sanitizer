@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>Stylometry Sanitizer</string>
 	<key>CFBundleExecutable</key>
 	<string>StylometrySanitizer</string>
 	<key>CFBundleIconFile</key>
@@ -12,6 +14,8 @@
 	<string>Stylometry Sanitizer</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
 	<key>LSMinimumSystemVersion</key>
@@ -24,7 +28,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Stylometry Sanitizer</string>
+				<string>Rewrite with Stylometry Sanitizer</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>neutralizeText</string>
@@ -32,11 +36,15 @@
 			<string>StylometrySanitizer</string>
 			<key>NSReturnTypes</key>
 			<array>
+				<string>public.text</string>
+				<string>public.plain-text</string>
 				<string>public.utf8-plain-text</string>
 				<string>NSStringPboardType</string>
 			</array>
 			<key>NSSendTypes</key>
 			<array>
+				<string>public.text</string>
+				<string>public.plain-text</string>
 				<string>public.utf8-plain-text</string>
 				<string>NSStringPboardType</string>
 			</array>
