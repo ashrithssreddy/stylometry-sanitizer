@@ -53,20 +53,6 @@ struct ContentView: View {
                 .keyboardShortcut("l", modifiers: [.command, .option, .shift])
                 .disabled(isProcessing || originalText.isEmpty)
 
-                Button("Reload Models") {
-                    Task { await loadAvailableModels() }
-                }
-                .disabled(isLoadingModels)
-
-                Spacer()
-
-                Text("Use the before-panel menu to neutralize selected text.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.horizontal)
-
-            HStack(spacing: 12) {
                 TextField("Pull model name (e.g. gemma3:4b)", text: $newModelName)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(width: 320)
@@ -80,6 +66,11 @@ struct ContentView: View {
                     ProgressView()
                         .scaleEffect(0.8, anchor: .center)
                 }
+
+                Button("Reload Models") {
+                    Task { await loadAvailableModels() }
+                }
+                .disabled(isLoadingModels)
 
                 Spacer()
             }
@@ -126,7 +117,7 @@ struct ContentView: View {
 
             if let selectedRange = selectedRange {
                 let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
-                    .font(.system(.body, design: .default))
+                    .font(.system(.title3, design: .default))
                     .padding(12)
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(10)
@@ -153,7 +144,7 @@ struct ContentView: View {
                 }
             } else {
                 TextEditor(text: text)
-                    .font(.system(.body, design: .default))
+                    .font(.system(.title3, design: .default))
                     .padding(12)
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(10)
