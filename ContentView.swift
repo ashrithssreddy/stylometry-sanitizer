@@ -29,11 +29,11 @@ struct ContentView: View {
                 // Header
                 VStack(spacing: 8) {
                     Text("🛡️ Stylometry Sanitizer")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 29, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     
                     Text("Neutralize your writing style for privacy")
-                        .font(.subheadline)
+                        .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
                 .padding(.top, 10)
@@ -48,32 +48,30 @@ struct ContentView: View {
                     .frame(minHeight: 350)
 
                     // Controls
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 16) {
-                            // Model selection
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Model")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                
-                                if isLoadingModels {
-                                    ProgressView()
-                                        .frame(width: 120, height: 20)
-                                } else {
-                                    Picker("", selection: $selectedModel) {
-                                        ForEach(availableModels, id: \.self) { model in
-                                            Text(model).tag(model)
-                                        }
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text("Model")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 74, alignment: .trailing)
+
+                            if isLoadingModels {
+                                ProgressView()
+                                    .frame(width: 180, height: 28, alignment: .center)
+                            } else {
+                                Picker("", selection: $selectedModel) {
+                                    ForEach(availableModels, id: \.self) { model in
+                                        Text(model).tag(model)
                                     }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .frame(width: 180)
-                                    .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                                 }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 180)
+                                .onChange(of: selectedModel) { LLMService.savePreferredModel($0) }
                             }
 
-                            // Neutralize button
                             Button(action: neutralizeText) {
-                                HStack {
+                                HStack(spacing: 6) {
                                     if isProcessing {
                                         ProgressView()
                                             .scaleEffect(0.8)
@@ -82,7 +80,7 @@ struct ContentView: View {
                                         Text("Neutralize")
                                     }
                                 }
-                                .frame(minWidth: 120)
+                                .frame(width: 122)
                             }
                             .buttonStyle(.borderedProminent)
                             .keyboardShortcut("l", modifiers: [.command, .option, .shift])
@@ -90,16 +88,19 @@ struct ContentView: View {
 
                             Spacer()
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        // Model installation
                         HStack(alignment: .center, spacing: 12) {
-                            TextField("Model name (e.g., gemma3:4b)", text: $newModelName)
+                            Text("Install")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 74, alignment: .trailing)
+
+                            TextField("Model name, e.g. gemma3:4b", text: $newModelName)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 250)
 
                             Button(action: { Task { await installModel() } }) {
-                                HStack {
+                                HStack(spacing: 6) {
                                     if isInstallingModel {
                                         ProgressView()
                                             .scaleEffect(0.8)
@@ -108,6 +109,7 @@ struct ContentView: View {
                                         Text("Install")
                                     }
                                 }
+                                .frame(width: 86)
                             }
                             .buttonStyle(.bordered)
                             .disabled(isInstallingModel || newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -115,22 +117,21 @@ struct ContentView: View {
                             Button(action: { Task { await loadAvailableModels() } }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.clockwise")
-                                    Text("Refresh Models")
+                                    Text("Refresh")
                                 }
+                                .frame(width: 86)
                             }
                             .buttonStyle(.bordered)
                             .disabled(isLoadingModels)
 
                             Spacer()
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .padding(16)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    .cornerRadius(8)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                     )
                 }
@@ -139,13 +140,14 @@ struct ContentView: View {
                 // Error message
                 if let modelLoadError {
                     Text(modelLoadError)
-                        .font(.footnote)
+                        .font(.system(size: 14))
                         .foregroundColor(.red)
                         .padding(.horizontal)
                 }
             }
             .padding()
             .frame(minWidth: 800, minHeight: 600)
+            .font(.system(size: NSFont.systemFontSize + 1))
         }
         .onAppear {
             originalFocused = true
@@ -166,7 +168,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(title)
-                    .font(.headline)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
                 Spacer()
                 if !isEditable {
@@ -186,7 +188,7 @@ struct ContentView: View {
 
                 if let selectedRange = selectedRange {
                     let view = SelectableTextView(text: text, selectedRange: selectedRange, isEditable: isEditable)
-                        .font(.system(.body, design: .default))
+                        .font(.system(size: 14))
                         .padding(16)
 
                     if isEditable {
@@ -207,7 +209,7 @@ struct ContentView: View {
                     }
                 } else {
                     TextEditor(text: text)
-                        .font(.system(.body, design: .default))
+                        .font(.system(size: 14))
                         .padding(16)
                         .disabled(!isEditable)
                 }
@@ -352,7 +354,7 @@ private struct SelectableTextView: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.backgroundColor = .clear
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize + 1)
         textView.string = text
         textView.selectedRange = selectedRange
 
