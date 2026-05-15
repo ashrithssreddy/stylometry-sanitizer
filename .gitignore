@@ -12,6 +12,7 @@
 *.app/
 !StylometrySanitizer.app/
 !StylometrySanitizer.app/**
+!Info.plist
 
 # Temporary files
 *.tmp
