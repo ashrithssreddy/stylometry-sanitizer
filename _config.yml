@@ -1,0 +1,4 @@
+theme: jekyll-theme-hacker
+title: Stylometry Sanitizer
+description: Local-first text rewriting for a smaller writing fingerprint.
+show_downloads: false
