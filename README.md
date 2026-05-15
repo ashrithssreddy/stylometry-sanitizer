@@ -1,8 +1,22 @@
 # Stylometry Sanitizer
 
-A local-first macOS writing utility for reducing obvious stylometric signals in text.
+Local-first text rewriting for a smaller writing fingerprint.
 
-Stylometry Sanitizer rewrites text into a more neutral style by reducing emotionally loaded wording, repeated phrasing, slang, unusual punctuation, and other distinctive writing patterns. Rewriting is handled locally through Ollama.
+Stylometry Sanitizer is a macOS utility that rewrites selected text into a more neutral style. It reduces obvious signals such as repeated phrasing, unusual punctuation, slang, emotional exaggeration, and highly personal wording.
+
+No cloud API is required. The rewrite path runs through your local Ollama server.
+
+```text
+select text -> local model -> rewritten text
+```
+
+## Design Bias
+
+- Local by default
+- Works across apps
+- No account, no telemetry, no hosted inference
+- Small models supported
+- Native macOS Services and Accessibility workflows
 
 ## Prerequisites
 
@@ -11,13 +25,19 @@ Stylometry Sanitizer rewrites text into a more neutral style by reducing emotion
 - Ollama installed locally
 - At least one Ollama model installed
 
-Install Ollama from `https://ollama.com`, then start the local server:
+Install Ollama from:
+
+```text
+https://ollama.com
+```
+
+Start the local server:
 
 ```sh
 ollama serve
 ```
 
-In another terminal, install a model:
+Install a model:
 
 ```sh
 ollama pull gemma3:4b
@@ -25,15 +45,15 @@ ollama pull gemma3:4b
 
 Smaller models start faster and use less memory. Larger models usually produce better rewrites.
 
-## Build
+## Build From Source
 
-Build the executable:
+Build:
 
 ```sh
 swift build
 ```
 
-This repository also includes a root app bundle:
+Open the bundled app:
 
 ```sh
 open StylometrySanitizer.app
@@ -46,7 +66,7 @@ cp .build/arm64-apple-macosx/debug/StylometrySanitizer \
   StylometrySanitizer.app/Contents/MacOS/StylometrySanitizer
 ```
 
-## Model Management
+## Models
 
 The app reads locally installed models from Ollama at:
 
@@ -54,7 +74,9 @@ The app reads locally installed models from Ollama at:
 http://localhost:11434/api/tags
 ```
 
-The download dropdown is populated from Ollama's public model catalog when available. If a model is not listed, install it manually:
+The download dropdown is populated from Ollama's public model catalog when available.
+
+If a model is not listed, install it directly:
 
 ```sh
 ollama pull model-name
@@ -62,13 +84,13 @@ ollama pull model-name
 
 Then reopen the app so the installed model appears in the model picker.
 
-## Cross-App Rewriting
+## Rewrite Anywhere
 
 Stylometry Sanitizer supports two system-level workflows.
 
-`Cmd+Option+Shift+L` rewrites the selected text in the focused app using Accessibility and clipboard automation. This is the most practical path for custom editors such as Sublime Text.
+`Cmd+Option+Shift+L` rewrites selected text in the focused app using Accessibility and clipboard automation. This is the most practical path for custom editors such as Sublime Text.
 
-macOS Services can expose `Rewrite with Stylometry Sanitizer` in standard text controls, usually under `Right click > Services`. This works best in apps that use native macOS text fields, such as Notes, TextEdit, and browser text fields.
+macOS Services can expose `Rewrite with Stylometry Sanitizer` in standard text controls, usually under `Right click > Services`. This works best in native macOS text fields, Notes, TextEdit, and browser text fields.
 
 If the Services item does not appear, check:
 
@@ -80,7 +102,7 @@ Enable `Rewrite with Stylometry Sanitizer` if it is listed there.
 
 ## Permissions
 
-The global shortcut workflow requires Accessibility permission because the app needs to copy and replace selected text in other apps.
+The global shortcut needs Accessibility permission because macOS requires it for apps that copy and replace selected text in other applications.
 
 macOS will prompt for this permission. It can also be enabled manually:
 
@@ -90,20 +112,24 @@ System Settings > Privacy & Security > Accessibility
 
 ## Troubleshooting
 
-If model loading fails, confirm Ollama is running:
+Ollama not responding:
 
 ```sh
 ollama serve
 ```
 
-If rewriting fails with a model error, confirm the selected model is installed:
+Selected model missing:
 
 ```sh
 ollama list
 ```
 
-If the app icon or Services item does not refresh, quit and reopen the app. macOS may also cache Services and Dock metadata for app bundles outside `/Applications`.
+Services item missing:
 
-## Non-Goals
+```sh
+/System/Library/CoreServices/pbs -flush
+```
 
-This tool does not guarantee anonymity. It is designed to reduce obvious writing-style signals, not defeat forensic authorship attribution.
+Then quit and reopen the app.
+
+macOS may cache Services and Dock metadata for app bundles outside `/Applications`.
